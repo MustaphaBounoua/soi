@@ -75,10 +75,10 @@ class SOI(pl.LightningModule):
         else:
             hidden_dim = 256
 
-        dim = np.max(self.sizes)
-        if dim <= 5:
+        dim_m = np.max(self.sizes)
+        if dim_m <= 5:
             htx = 12
-        elif dim <= 10:
+        elif dim_m <= 10:
             htx = 18
         else:
             htx = 24

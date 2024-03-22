@@ -95,8 +95,7 @@ def benchmark_exp(args):
 
     mod_list={ "x"+ str(i) : dim for i in range(nb_mod) }
 
-    test_samples = get_samples(test_loader, mod_list=mod_list)
-
+   
     model = SOI(debias=True,
                         test_samples= test_loader,
                         gt = task.get_summary(),
