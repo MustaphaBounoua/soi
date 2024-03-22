@@ -87,7 +87,10 @@ class SOI(pl.LightningModule):
 
         # self.score = UnetMLP(dim= dim , init_dim= hidden_dim ,dim_mults=[]  , time_dim= time_dim ,nb_mod= len(mod_list.keys()) )
 
-        if self.tx:
+        if self.tx==False:
+            self.score = UnetMLP_simple(dim=dim, init_dim=hidden_dim, dim_mults=[], time_dim=time_dim,
+                                    nb_mod=len(mod_list.keys()))
+        else:
             self.score = DiT(depth=4,
                              hidden_size=htx * len(mod_list),
                              mod_sizes=self.sizes,
@@ -95,9 +98,8 @@ class SOI(pl.LightningModule):
                              num_heads=6,
                              variable_input=False,
                              )
-        else:
-            self.score = UnetMLP_simple(dim=dim, init_dim=hidden_dim, dim_mults=[], time_dim=time_dim,
-                                    nb_mod=len(mod_list.keys()))
+        
+            
 
         # self.score = UnetMLP_s(dim= dim , init_dim= hidden_dim, bottelneck= hidden_dim, time_dim= time_dim ,nb_mod= len(mod_list.keys()) )
 

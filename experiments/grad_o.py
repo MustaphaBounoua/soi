@@ -107,7 +107,7 @@ def benchmark_exp(args):
                     scores_order= 2,
                     debug= True,
                     margin_time=1,
-                    tx = True,
+                    tx = False,
                     fill_zeros= False,
                     weight_subsets=False )
 
