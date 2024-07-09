@@ -4,12 +4,12 @@
 
 
 
-# S*\Omega*I: Score-based O-INFORMATION Estimation
+# S$\Omega$I: Score-based O-INFORMATION Estimation
 
 This repository contains the implementation for the paper [Score-based O-INFORMATION Estimation](https://arxiv.org/pdf/2402.05667) presented at ICML 2024.
 
 ## Description
-S*\Omega*I is a new method to estimate O-information using score functions to describe high interdependencies in complex systems. We show its effectiveness on synthetic data and a real neural application.
+S$\Omega$I is a new method to estimate O-information using score functions to describe high interdependencies in complex systems. We show its effectiveness on synthetic data and a real neural application.
 
 ### Installation
 ```bash
@@ -23,10 +23,10 @@ pip install -r requirements.txt
 
 #### Synthetic benchmark
 
-The files in '\demo\Quickstart' presents a straightforward quickstart to use *S\Omega*I. 
+The files in '\demo\Quickstart' presents a straightforward quickstart to use S$\Omega$I. 
 First, by default config can be loaded :
 ```python
-    args=get_config().parse_args([])
+args=get_config().parse_args([])
 ```
 
 A synthetic benchmark can be created : 
@@ -42,46 +42,39 @@ Groud truth information measures can be obtaining:
 task.get_summary()
 ```
 
-#### Runing S*\Omega*I
+#### Quickstart S$\Omega$I
 
 - First, obtain the data loaders :
 ```python
 train_l, test_l  = get_dataloader(task,args)
 ```
-- Instantiante SOI object
+- Instantiante SOI object and fit the model
 
 ```python
 soi = SOI(args, nb_var = task.nb_var, test_loader=test_l, gt = task.get_summary())
-```
-
-Fit the model
-```python
 soi.fit(train_l, test_l)
 ```
-
 Compute O_information using the test_loader
 
 ```python
-soi.compute_o_inf_batch(test_l)
+soi.compute_o_inf(test_l)
 ```
 
+### Experiments
 
+All the experiments can be found at `experiments\`. The configuration of the experiments can be accessed in `experiments\configs.py`
 
-### Running the Code
-
-To run  a particular experiment 
-
+Example:
+```bash
+python -m experiments.run_soi --bechmark "red" --dim 1 --setting "0" --rho 0.4 --bs 256 --lr 0.01 --max_epochs 1000
+```
 
 To run the experiments and reproduce the results from the paper, the shell scripts containing all the configuration are in '\jobs':
 
 
-
-### Configuration
-The configurations for different experiments are stored in the `experiments/config.py` file. 
-
 ### Datasets
 
-Datasets used in the experiments are stored in the `data` directory. Ensure that the necessary data files are available before running the experiments.
+
 
 ## Project Structure
 ```bash
