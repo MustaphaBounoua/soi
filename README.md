@@ -4,7 +4,7 @@
 
 
 
-# S$\Omega$I: Score-based O-INFORMATION Estimation
+# S```\Omega```I: Score-based O-INFORMATION Estimation
 
 This repository contains the implementation for the paper [Score-based O-INFORMATION Estimation](https://arxiv.org/pdf/2402.05667) presented at ICML 2024.
 
@@ -78,7 +78,7 @@ To run the experiments and reproduce the results from the paper, the shell scrip
 
 ## Project Structure
 ```bash
-MLD/
+soi/
 ├── data/                  # VBN datasets after running src/vbn/downoalad.py
 ├── experiments/           
 │   ├── run_soi.py         # Run SOI experiment on synthetic benchmark
