@@ -9,7 +9,7 @@
 This repository contains the implementation for the paper [Score-based O-INFORMATION Estimation](https://arxiv.org/pdf/2402.05667) presented at ICML 2024.
 
 ## Description
-S $$\Omega$$ I is a new method to estimate O-information using score functions to describe high interdependencies in complex systems. We show its effectiveness on synthetic data and a real neural application.
+S $\Omega$ I is a new method to estimate O-information using score functions to describe high interdependencies in complex systems. We show its effectiveness on synthetic data and a real neural application.
 
 ### Installation
 ```bash
