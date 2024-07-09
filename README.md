@@ -4,7 +4,7 @@
 
 
 
-# S```\Omega```I: Score-based O-INFORMATION Estimation
+# S \Omega I: Score-based O-INFORMATION Estimation
 
 This repository contains the implementation for the paper [Score-based O-INFORMATION Estimation](https://arxiv.org/pdf/2402.05667) presented at ICML 2024.
 
