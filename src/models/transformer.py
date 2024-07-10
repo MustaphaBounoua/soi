@@ -14,13 +14,9 @@ import torch.nn as nn
 import numpy as np
 import math
 from timm.models.vision_transformer import PatchEmbed, Attention, Mlp
-# import sys
-# root = "/home/bounoua/work/pid/"
-# sys.path.append(root)
-from src.libs.util import concat_vect ,deconcat
-import os
 
-#os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+# os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+
 
 def modulate(x, shift, scale):
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
@@ -34,6 +30,7 @@ class TimestepEmbedder(nn.Module):
     """
     Embeds scalar timesteps into vector representations.
     """
+
     def __init__(self, hidden_size, frequency_embedding_size=256):
         super().__init__()
         self.mlp = nn.Sequential(
@@ -56,19 +53,20 @@ class TimestepEmbedder(nn.Module):
         # https://github.com/openai/glide-text2im/blob/main/glide_text2im/nn.py
         half = dim // 2
         freqs = torch.exp(
-            -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
+            -math.log(max_period) * torch.arange(start=0,
+                                                 end=half, dtype=torch.float32) / half
         ).to(device=t.device)
         args = t[:, None].float() * freqs[None]
         embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
         if dim % 2:
-            embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+            embedding = torch.cat(
+                [embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
         return embedding
 
     def forward(self, t):
         t_freq = self.timestep_embedding(t, self.frequency_embedding_size)
         t_emb = self.mlp(t_freq)
         return t_emb
-
 
 
 #################################################################################
@@ -90,7 +88,8 @@ def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=
     grid = grid.reshape([2, 1, grid_size, grid_size])
     pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid)
     if cls_token and extra_tokens > 0:
-        pos_embed = np.concatenate([np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0)
+        pos_embed = np.concatenate(
+            [np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0)
     return pos_embed
 
 
@@ -98,10 +97,12 @@ def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
     assert embed_dim % 2 == 0
 
     # use half of dimensions to encode grid_h
-    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
-    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
+    emb_h = get_1d_sincos_pos_embed_from_grid(
+        embed_dim // 2, grid[0])  # (H*W, D/2)
+    emb_w = get_1d_sincos_pos_embed_from_grid(
+        embed_dim // 2, grid[1])  # (H*W, D/2)
 
-    emb = np.concatenate([emb_h, emb_w], axis=1) # (H*W, D)
+    emb = np.concatenate([emb_h, emb_w], axis=1)  # (H*W, D)
     return emb
 
 
@@ -119,8 +120,8 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     pos = pos.reshape(-1)  # (M,)
     out = np.einsum('m,d->md', pos, omega)  # (M, D/2), outer product
 
-    emb_sin = np.sin(out) # (M, D/2)
-    emb_cos = np.cos(out) # (M, D/2)
+    emb_sin = np.sin(out)  # (M, D/2)
+    emb_cos = np.cos(out)  # (M, D/2)
 
     emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
     return emb
@@ -134,224 +135,138 @@ class DiTBlock(nn.Module):
     """
     A DiT block with adaptive layer norm zero (adaLN-Zero) conditioning.
     """
+
     def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, **block_kwargs):
         super().__init__()
-        self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.attn = Attention(hidden_size, num_heads=num_heads, qkv_bias=True, **block_kwargs)
-        self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
+        self.norm1 = nn.LayerNorm(
+            hidden_size, elementwise_affine=False, eps=1e-6)
+        self.attn = Attention(
+            hidden_size, num_heads=num_heads, qkv_bias=True, **block_kwargs)
+        self.norm2 = nn.LayerNorm(
+            hidden_size, elementwise_affine=False, eps=1e-6)
         mlp_hidden_dim = int(hidden_size * mlp_ratio)
-        approx_gelu = lambda: nn.GELU(approximate="tanh")
-        self.mlp = Mlp(in_features=hidden_size, hidden_features=mlp_hidden_dim, act_layer=approx_gelu, drop=0)
+        def approx_gelu(): return nn.GELU(approximate="tanh")
+        self.mlp = Mlp(in_features=hidden_size,
+                       hidden_features=mlp_hidden_dim, act_layer=approx_gelu, drop=0)
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
             nn.Linear(hidden_size, 6 * hidden_size, bias=True)
         )
 
     def forward(self, x, c):
-       
-        
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(c).chunk(6, dim=1)
-   
-    
-        x = x + gate_msa.unsqueeze(1) * self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
-        x = x + gate_mlp.unsqueeze(1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
+
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(
+            c).chunk(6, dim=1)
+
+        x = x + \
+            gate_msa.unsqueeze(
+                1) * self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
+        x = x + \
+            gate_mlp.unsqueeze(
+                1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
         return x
+
+
+
 
 
 class FinalLayer(nn.Module):
     """
     The final layer of DiT.
     """
-    def __init__(self, hidden_size, patch_size, out_channels):
+
+    def __init__(self, hidden_size, out_size,nb_var,encoding=False):
         super().__init__()
-        self.norm_final = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.linear = nn.Linear(hidden_size, patch_size * patch_size * out_channels, bias=True)
+        self.encoding = encoding
+        self.norm_final = nn.LayerNorm(
+            hidden_size, elementwise_affine=False, eps=1e-6)
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
             nn.Linear(hidden_size, 2 * hidden_size, bias=True)
         )
-
-    def forward(self, x, c):
-        shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
-        x = modulate(self.norm_final(x), shift, scale)
-        x = self.linear(x)
-        return x
-
-
-class FinalLayer_2(nn.Module):
-    """
-    The final layer of DiT.
-    """
-    def __init__(self, hidden_size, out_size):
-        super().__init__()
-        self.norm_final = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         self.linear = nn.Linear(hidden_size, out_size, bias=True)
-        self.adaLN_modulation = nn.Sequential(
-            nn.SiLU(),
-            nn.Linear(hidden_size, 2 * hidden_size, bias=True)
-        )
 
     def forward(self, x, c):
         shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
         x = modulate(self.norm_final(x), shift, scale)
-        x = self.linear(x)
-        return x
+        if self.encoding==True:
+            #return self.linear(x.view(x.shape[0],-1))
+            return self.linear(x) #.sum(dim=1)
+        else:
+            return self.linear(x)
+     
 
 
-class ModDeEmbed(nn.Module):
+class VarDeEmbed(nn.Module):
     """ Mod to mod Embedding
     """
+
     def __init__(
             self,
-            sizes = [],
+            sizes=[],
             embed_dim: int = 768,
-            norm_layer = None,
+            norm_layer=None,
             bias: bool = True,
-            variable_input = False,
     ):
         super().__init__()
         self.patch_size = sizes
         self.sizes = sizes
-        
-        norm_l = norm_layer(embed_dim) if norm_layer else nn.Identity()
-        self.proj = nn.ModuleList([nn.Linear(embed_dim,size, bias=bias) for size in sizes ]) 
-        self.norm = nn.ModuleList([norm_l for size in sizes ]) 
-        
 
-    def forward(self, x_mod, i = []):
-        x_mod = x_mod.permute(1,0,2)
-        if  len(i) == 0:
-            i = np.arange(len(x_mod) )
-        proj = np.array(self.proj)[i] 
-        norm = np.array(self.norm)[i]
-        # print("mod_dembed")
-        # print(x_mod.shape)
-        # x = [
-        #     norm_x(x[idx]) for  idx,norm_x in enumerate(norm) 
-        # ]
-        
+        norm_l = norm_layer(embed_dim) if norm_layer else nn.Identity()
+        self.proj = nn.ModuleList(
+            [nn.Linear(embed_dim, size, bias=bias) for size in sizes])
+        self.norm = nn.ModuleList([norm_l for size in sizes])
+
+    def forward(self, x_var, i=[]):
+        x_var = x_var.permute(1, 0, 2)
+        if len(i) == 0:
+            i = np.arange(len(x_var))
+        proj = np.array(self.proj)[i]
         x = [
-            proj_x(x_mod[idx]) for  idx,proj_x in enumerate(proj) 
+            proj_x(x_var[idx]) for idx, proj_x in enumerate(proj)
         ]
-        
-        
-        
+
         return x
 
 
-
-class ModEmbed(nn.Module):
-    """ Mod to mod Embedding
+class VarEmbed(nn.Module):
+    """ Var to Var Embedding
     """
 
     def __init__(
             self,
-            sizes = [],
+            sizes=[],
             embed_dim: int = 768,
-            norm_layer = None,
+            norm_layer=None,
             bias: bool = True,
-            variable_input= False,
+            variable_input=False,
     ):
         super().__init__()
-       
+
         self.sizes = sizes
         self.variable_input = variable_input
         norm_l = norm_layer(embed_dim) if norm_layer else nn.Identity()
-        
-        self.norm = nn.ModuleList([norm_l for size in sizes ]) 
-        self.proj = nn.ModuleList([nn.Linear(size,embed_dim, bias=bias) for size in sizes ]) 
-        
-        # if variable_input:
-        #     norm_l = norm_layer(embed_dim* len(sizes)) if norm_layer else nn.Identity()
-        #     self.proj = nn.ModuleList([nn.Linear(size,embed_dim, bias=bias) for size in sizes ]) 
-        #     self.norm = nn.ModuleList([norm_l for size in sizes ]) 
-        # # else:
-        #     norm_l = norm_layer(embed_dim* len(sizes)) if norm_layer else nn.Identity()
-        #     self.proj = nn.ModuleList([nn.Linear(np.sum(sizes),embed_dim* len(sizes), bias=bias) for size in sizes[:1] ]) 
-        #     self.norm = nn.ModuleList([norm_l for size in sizes[:1] ]) 
-            
-        
 
-    def forward(self, x_mod, i = []):
-        if  len(i) == 0:
-                i = np.arange(len(x_mod) )
-                
-        proj = np.array(self.proj)[i] 
+        self.norm = nn.ModuleList([norm_l for size in sizes])
+        self.proj = nn.ModuleList(
+            [nn.Linear(size, embed_dim, bias=bias) for size in sizes])
+
+    def forward(self, x_var):
+        
+        i = np.arange(len(x_var))
+
+        proj = np.array(self.proj)[i]
         norm = np.array(self.norm)[i]
-        
+
         x = [
-                proj_x(x_mod[idx].float()) for  idx,proj_x in enumerate(proj) 
-            ]
-            
+            proj_x(x_var[idx].float()) for idx, proj_x in enumerate(proj)
+        ]
+
         x = [
-                norm_x(x[idx]) for  idx,norm_x in enumerate(norm) 
-            ]
-        return torch.stack(x).permute(1,0,2)
-        
-        # if self.variable_input:
-        
-        #     if  len(i) == 0:
-        #         i = np.arange(len(x_mod) )
-                
-        #     proj = np.array(self.proj)[i] 
-        #     norm = np.array(self.norm)[i]
-        
-        #     x = [
-        #         proj_x(x_mod[idx]) for  idx,proj_x in enumerate(proj) 
-        #     ]
-            
-        #     x = [
-        #         norm_x(x[idx]) for  idx,norm_x in enumerate(norm) 
-        #     ]
-        #     return torch.stack(x).permute(1,0,2)
-        # else:
-        #     x =torch.concat(x_mod,dim=1).float()
-        #     x = self.proj[0](x) 
-        #     x = self.norm[0](x)
-        #     x = x.reshape(x.shape[0],len(self.sizes),-1)
-        #     return x
-        
+            norm_x(x[idx]) for idx, norm_x in enumerate(norm)
+        ]
+        return torch.stack(x).permute(1, 0, 2)
 
-
-
-class ModEncode(nn.Module):
-    """ Mod to mod Embedding
-    """
-
-    def __init__(
-            self,
-            sizes = [],
-            embed_dim: int = 768,
-            norm_layer = None,
-            bias: bool = True,
-    ):
-        super().__init__()
-        self.patch_size = sizes
-        self.sizes = sizes
-        norm_l = norm_layer(embed_dim) if norm_layer else nn.Identity()
-        self.proj = nn.ModuleList([nn.Linear(embed_dim,embed_dim, bias=bias) for size in sizes]) 
-        self.norm = nn.ModuleList([norm_l for size in sizes ]) 
-        
-        
-
-    def forward(self, x_mod ):
-        x_mod = x_mod.permute(1,0,2)
-        # if  len(i) == 0:
-        #     i = np.arange(len(x_mod) ) 
-             
-        # proj = np.array(self.proj)[i] 
-        # norm = np.array(self.norm)[i]
-        # # print("enc")
-        # # print(x_mod.shape)
-        # x = [
-        #     proj_x(x_mod[idx]) for  idx,proj_x in enumerate(proj) 
-        # ]
-        # x = [
-        #     norm_x(x[idx]) for  idx,norm_x in enumerate(norm) 
-        # ]
-        x = x_mod.sum(dim=0)
-        #print(x.shape)
-        return x
 
 
 
@@ -359,34 +274,27 @@ class DiT_Enc(nn.Module):
     """
     Diffusion model with a Transformer backbone.
     """
+
     def __init__(
         self,
         hidden_size=1152,
-        mod_sizes = [],
+        var_sizes=[],
         depth=2,
         num_heads=16,
         mlp_ratio=4.0,
-        variable_input=True,
-        latent_size = None,
     ):
         super().__init__()
 
         self.num_heads = num_heads
-        self.mod_sizes =mod_sizes
-        self.hidden_size =hidden_size
-        self.variable_input = variable_input
-        #self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size, bias=True)
-        
-        #self.x_embedder = nn.Linear(patch_size,hidden_size)
-        #self.x_embedder = ModEmbed(sizes=mod_sizes,embed_dim=hidden_size,norm_layer=None)
+        self.var_sizes = var_sizes
+        self.hidden_size = hidden_size
 
         self.blocks = nn.ModuleList([
             DiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
         ])
-        self.final_layer = FinalLayer_2(hidden_size, hidden_size)
-        #if latent_size!=None:
-        self.encode_mod = ModEncode(embed_dim=hidden_size,sizes= mod_sizes)
+        self.final_layer = FinalLayer(hidden_size, hidden_size,nb_var=len(var_sizes),encoding=True)
         self.initialize_weights()
+
 
     def initialize_weights(self):
         # Initialize transformer layers:
@@ -396,13 +304,7 @@ class DiT_Enc(nn.Module):
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
         self.apply(_basic_init)
-        
-        # w = self.x_embedder.proj.weight.data
-        # nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
-        # nn.init.constant_(self.x_embedder.proj.bias, 0)
 
-        
-        # Zero-out adaLN modulation layers in DiT blocks:
         for block in self.blocks:
             nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
@@ -412,93 +314,65 @@ class DiT_Enc(nn.Module):
         nn.init.constant_(self.final_layer.adaLN_modulation[-1].bias, 0)
         nn.init.constant_(self.final_layer.linear.weight, 0)
         nn.init.constant_(self.final_layer.linear.bias, 0)
-        
-    def get_pos_embed(self,i):
-        pos_embed = get_1d_sincos_pos_embed_from_grid(self.hidden_size, i)  
-  
-        return torch.from_numpy(pos_embed).float().unsqueeze(0)
 
-    
+    def forward(self, x, t):
 
-    def forward(self, x, t,i=[]):
-        """
-        Forward pass of DiT.
-        x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
-        t: (N,) tensor of diffusion timesteps
-        y: (N,) tensor of class labels
-        """
-        #if  len(i) == 0:
-        #    i = np.arange(len(x) )
-  
-        #pos_embed=self.get_pos_embed(np.array(i)).to(x[0].device)
- 
-        #x = self.x_embedder(x) + self.pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
-        #x = self.x_embedder(x, i=i) + pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
-        
-        c = t                                # (N, D)
-       
+        c = t
         for block in self.blocks:
-            x = block(x, c)                      # (N, T, D)
-        x = self.final_layer(x, c)                # (N, T, patch_size ** 2 * out_channels)
-        x = self.encode_mod(x)
-        #x = self.unpatchify(x)                   # (N, out_channels, H, W)
+            x = block(x, c)
+        x = self.final_layer(x, c)
+        
         return x
-
 
 
 class DiT(nn.Module):
     """
     Diffusion model with a Transformer backbone.
     """
+
     def __init__(
         self,
-        hidden_size=1152,
-        mod_sizes = [],
-        depth=28,
-        num_heads=16,
+        hidden_size=128,
+        depth=4,
+        num_heads=4,
         mlp_ratio=4.0,
-        mod_list = [],
-        variable_input=True,
- 
+        var_list=None,
+
     ):
         super().__init__()
         self.num_heads = num_heads
-        self.mod_sizes =mod_sizes
-        self.hidden_size =hidden_size
-        self.variable_input = variable_input
-        self.mod_list = mod_list
-        #self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size, bias=True)
-        
-        #self.x_embedder = nn.Linear(patch_size,hidden_size)
-        self.mod_enc = DiT_Enc(hidden_size=hidden_size,
-                               mod_sizes=mod_sizes,
-                               depth= depth//2,
-                               variable_input=variable_input,
-                               latent_size=None,
+        self.var_sizes = list(var_list.values())
+        self.var_list = var_list
+        self.hidden_size = hidden_size
+
+        self.var_enc = DiT_Enc(hidden_size=hidden_size,
+                               var_sizes=self.var_sizes,
+                               depth=depth//2,
                                num_heads=num_heads,
                                mlp_ratio=mlp_ratio
                                )
-        
-        self.x_embedder = ModEmbed(sizes=mod_sizes,
+
+        self.x_embedder = VarEmbed(sizes=self.var_sizes,
                                    embed_dim=hidden_size,
-                                   norm_layer=nn.LayerNorm,
-                                   variable_input = self.variable_input)
+                                   norm_layer=nn.LayerNorm)
+        
+        self.x_embedder_clean = VarEmbed(sizes=self.var_sizes,
+                                   embed_dim=hidden_size,
+                                   norm_layer=nn.LayerNorm)
         
         self.t_embedder = TimestepEmbedder(hidden_size)
-        #self.y_embedder = LabelEmbedder(len(mod_sizes), hidden_size)
-    
+
         self.blocks = nn.ModuleList([
             DiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
         ])
-        self.final_layer = FinalLayer_2(hidden_size, hidden_size)
-        self.unembed_mod = ModDeEmbed(sizes=mod_sizes,
+        self.final_layer = FinalLayer(hidden_size, hidden_size,encoding=False,nb_var=len(self.var_sizes))
+        self.unembed_var = VarDeEmbed(sizes=self.var_sizes,
                                       embed_dim=hidden_size,
-                                      variable_input = variable_input,
                                       norm_layer=None)
-        self.initialize_weights()
+        #self.initialize_weights()
+        self.pos_embed = self.get_pos_embed(np.array(np.arange(len(self.var_sizes))))
 
     def initialize_weights(self):
-        # Initialize transformer layers:
         def _basic_init(module):
             if isinstance(module, nn.Linear):
                 torch.nn.init.xavier_uniform_(module.weight)
@@ -506,26 +380,14 @@ class DiT(nn.Module):
                     nn.init.constant_(module.bias, 0)
         self.apply(_basic_init)
 
-        # Initialize (and freeze) pos_embed by sin-cos embedding
-        #pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(self.x_embedder.num_patches ** 0.5))
-        #pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(self.num_patches ))
-        
-        #self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
-
-        # Initialize patch_embed like nn.Linear (instead of nn.Conv2d):
         for mod in self.x_embedder.proj:
             w = mod.weight.data
             nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
             nn.init.constant_(mod.bias, 0)
 
-        # Initialize label embedding table:
-        #nn.init.normal_(self.y_embedder.embedding_table.weight, std=0.02)
-
-        # Initialize timestep embedding MLP:
         nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
         nn.init.normal_(self.t_embedder.mlp[2].weight, std=0.02)
 
-        # Zero-out adaLN modulation layers in DiT blocks:
         for block in self.blocks:
             nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
@@ -535,148 +397,56 @@ class DiT(nn.Module):
         nn.init.constant_(self.final_layer.adaLN_modulation[-1].bias, 0)
         nn.init.constant_(self.final_layer.linear.weight, 0)
         nn.init.constant_(self.final_layer.linear.bias, 0)
-        
-        for mod in self.unembed_mod.proj:
-            w = mod.weight.data
+
+        for var in self.unembed_var.proj:
+            w = var.weight.data
             nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
-            nn.init.constant_(mod.bias, 0)
+            nn.init.constant_(var.bias, 0)
             
         
-    def get_pos_embed(self,i):
-        pos_embed = get_1d_sincos_pos_embed_from_grid(self.hidden_size, i)  
+
+    def get_pos_embed(self, i):
+        pos_embed = get_1d_sincos_pos_embed_from_grid(self.hidden_size, i)
         return torch.from_numpy(pos_embed).float().unsqueeze(0)
-     
-    
 
-    def forward_d(self, x
-                ,t = None
-                ,mask = None
-                , y=None):
-        """
-        Forward pass of DiT.
-        x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
-        t: (N,) tensor of diffusion timesteps
-        y: (N,) tensor of class labels
-        """
-        #if  len(i) == 0:
-        i_all = np.arange(len(x) )
+    def forward(self, x, t=None, mask=None,std=None):
 
-        pos_embed=self.get_pos_embed(np.array(i_all)).to(x[0].device)
+        x = torch.split(x, self.var_sizes, dim=1)
+                           
 
-        x_all = self.x_embedder(x, i=i_all) + pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
-        t = self.t_embedder(t).squeeze() 
-        t_zeros = torch.zeros_like(t)
-            
-        if self.variable_input:
-            i = [idx for idx,k in enumerate(mask[0]) if k>0] ## remove marginals form the set 
-            i_c = [idx for idx,k in enumerate(mask[0]) if k==0] ## get conditonal idx 
-            
-            x = x_all[:,torch.from_numpy(i).long().to(x[0].device),:]
-            
-            if len(i_c)>0:
-                x_c = x_all[:,torch.from_numpy(i_c).long().to(x[0].device),:]
-                y = self.mod_enc(x_c,t=t_zeros,i=i_c)
-            else:
-                y = t_zeros
-        else:
-
-          
-            mask = mask.view(mask.shape[0],mask.shape[1],1)
-            
-            x = ( mask>0).int() * x_all
-
-            x_c = ( mask==0).int() * x_all
-            
-            y = self.mod_enc(x_c,t=t_zeros)
+        
+        x_all = self.x_embedder(x) + self.pos_embed.to(x[0].device)  
+        
+        
+        t = self.t_embedder(t).squeeze()
         
       
-            
-            
-        c = t + y                                # (N, D)
+        mask = mask.view(mask.shape[0], mask.shape[1], 1)
         
+        x, x_c = (mask > 0).int() * x_all, (mask == 0).int() * x_all
+        
+        mask_cond = ((mask == 0).sum(dim=1) > 0).int().view(mask.shape[0], 1)
+        # print(mask_cond[:5])
+        # print(mask[:5])
+        # print("mask_cond",mask_cond.shape)
+        y = self.var_enc(x_c, t=torch.zeros_like(t))
+        y = y.sum(dim=1) *mask_cond
+        
+        
+        
+        
+        c = t + y
+
         for block in self.blocks:
-            x = block(x, c)                      # (N, T, D)
-        x = self.final_layer(x, c)                # (N, T, patch_size ** 2 * out_channels)
-        x = self.unembed_mod(x)
-
-        return x
-
-
-
-
-    def forward(self,x,
-                t= None, 
-                t_n = None, 
-                mask= None,
-                std = None):
-        """_summary_
-
-        Args:
-            dit (_type_): tx
-            x (_type_): dictionnary(x)
-            t (_type_): time (N,1)
-            mask : N,M , M is nb mod
-        Returns:
-            _type_: interface to be used with soi multitime
-        """
-        if isinstance(x,dict)==False:
-            x = deconcat( x,mod_list= self.mod_list,sizes=self.mod_sizes )
+            x = block(x, c)
+        x = self.final_layer(x, c)
+        x = self.unembed_var(x)
         
-        data = [ x[k] for idx, k in enumerate(x.keys() )  ]
-        
-        out = self.forward_d( x= data, 
-                            mask= mask,
-                            t = t)
-        
-        if self.variable_input == False:
-            out = torch.cat(out,dim=1)
-            if std!=None:
-                return out/std
-            else:
-                return out
-        else: 
-            return concat_vect( fill_missing_and_std(out,np.arange(len(x)),x,std ) )
-
-
-def fill_missing_and_std(out, i , origin_data,std=None):
-    k = 0
-    out_f={}
-    for idx,key in enumerate( origin_data.keys()):
-        if idx in i:
-            out_f[key] = out[k]
-            if std!=None:
-                out_f[key] =out_f[key]/std
-            k+=1
+        out = torch.cat(x, dim=1)
+        if std != None:
+            return out/std
         else:
-            out_f[key] = torch.zeros_like(origin_data[key])
-    return out_f
+            return out
 
 
-if __name__ =="__main__":
-    m = DiT(depth=1,
-            hidden_size=6*10,
-            mod_sizes= [5,10,15], variable_input= False,
-            num_heads=6)
   
-    #print( sum(p.numel() for p in m.parameters() if p.requires_grad) )
-    
-    
-    # out = m( { "x0":torch.randn(32,5),
-    #           "x1":torch.randn(32,10),
-    #           "x2":torch.randn(32,15)}, 
-    #         t =torch.randn(32,1), 
-    #         y = torch.zeros(32,3).long() ,
-    #         i = [0,1,2]
-            
-    #         )
-    out =m.forward_mt(x ={ "x0":torch.randn(32,5),
-              "x1":torch.randn(32,10),
-              "x2":torch.randn(32,15)},
-                 t= torch.randn(32,1),
-                 mask=torch.tensor([[1,0,0] ])
-                 )
-    print(out.shape)
-    print("=================output=================")
-    for o in out.keys():
-        print("o.shape")
-        print(out[o].shape)

@@ -2,10 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
 # C extensions
 *.so
-
 # Distribution / packaging
 .Python
 build/
@@ -20,27 +18,19 @@ parts/
 sdist/
 var/
 myvenv/
-results/
-results_imp/
-trained_models_imp/
-results_benchmark/
-results_sigma/
-trained_models_mi_notebook/
-trained_models_mi_notebook_debias/
-trained_models_mi/
-trained_models_debias/
-trained_models_last
+my_env/
+myvenv/
+data/
+venv/
+
+trained_models/
+logs/
+quickstart/
 data/
 qualitative/
 results/
-trained_models/
-results/
-qualitative/
-notebook_output/
 test/
-my_env/
 temp/
-venv/
 wheels/
 pip-wheel-metadata/
 share/python-wheels/

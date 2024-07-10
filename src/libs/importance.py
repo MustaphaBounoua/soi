@@ -1,11 +1,14 @@
 import torch
 import numpy as np
 
-
+""" Code reported from :
+        [1] https://arxiv.org/abs/2106.02808
+        [2] https://github.com/CW-Huang/sdeflow-light
+"""
 t_eps= 1e-3
 
 
-def sample_vp_truncated_q(shape, beta_min, beta_max, t_epsilon, T):
+def sample_vp_truncated_q(shape, beta_min, beta_max, T,t_epsilon=1e-3):
     if isinstance(T, float) or isinstance(T, int):
         T = torch.Tensor([T]).float()
     u = torch.rand(*shape).to(T)
@@ -20,8 +23,6 @@ def get_normalizing_constant(shape,T =1.0):
     u = torch.rand(*shape).to(T)
     vpsde = VariancePreservingTruncatedSampling(beta_min=0.1, beta_max=20.0, t_epsilon=0.001)
     return vpsde.normalizing_constant(T=T)
-
-
 
 
 

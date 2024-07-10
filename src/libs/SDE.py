@@ -12,182 +12,180 @@ class VP_SDE():
                  beta_max=20,
                  N=1000,
                  importance_sampling=True,
-                 nb_mod=2,
-                 scores_order=0,
-                 fill_zeros=False,
-                 weight_subsets=True,
-                 margin_time=1,
+                 o_inf_order=1,
+                 weight_s_functions=True,
+                 marginals=1,
+                 var_sizes=[1, 1, 1]
                  ):
         self.beta_min = beta_min
         self.beta_max = beta_max
-        self.margin_time = margin_time
+        self.marginals = marginals
+        self.var_sizes = var_sizes
+        self.rand_batch = True
         self.N = N
-        self.fill_zeros = fill_zeros
         self.T = 1
         self.importance_sampling = importance_sampling
+        self.nb_var = len(self.var_sizes)
+        self.weight_s_functions = weight_s_functions
         self.device = "cuda"
-        self.nb_mod = nb_mod
-        self.t_epsilon = 1e-3
-        self.weight_subsets = weight_subsets
+        self.masks = self.get_masks_training(
+            o_inf_order=o_inf_order)
+       
 
-        self.subsets = self.get_subsets_joint_marginal_cond(
-            scores_order=scores_order)
-
-    def get_subsets_joint_marginal_cond(self, scores_order):
-        nb_mod = self.nb_mod
-        subsets = [list(i)
-                   for i in itertools.product([0, 1, -1], repeat=nb_mod)]
-        if scores_order == 1:
-            subsets = [s for s in subsets if (sum(s) == nb_mod) or  # joint
-                       (np.sum(np.array(s) == 1) and np.sum(np.array(s) == -1)
-                        == nb_mod-1)  # marginal with cardinal =1
-                       or (np.sum(np.array(s) == 1) == 1 and np.min(np.array(s)) == 0)]  # cond
-        elif scores_order == 2:
-            subsets =[ s for s in subsets if  
-                      ( sum(s) == nb_mod )  or  ##joint
-                    ( np.sum(np.array(s) == 1) == nb_mod-1 and np.sum( np.array(s) == -1) == 1 )  ##marginal 
-                    or 
-                    ( np.sum( np.array(s) == 1) == 1 and np.sum(np.array(s)==0 ) == nb_mod-1  )  #cond full
-                    or ( np.sum( np.array(s) == 1) == 1 and np.sum(np.array(s)==0 ) == nb_mod-2  )   #cond_ij    
-                    or   ( np.sum( np.array(s) == 1) == 1 and np.sum(np.array(s)==-1 ) == nb_mod-1  ) # marginal
-                    ]   
-
-        if self.weight_subsets:
-            subsets_w = []
-            if scores_order == 1:
-                print("Weighting the scores to learn ")
-                for s in subsets:
-                    nb_var_inset = np.sum(
-                        np.array(s) == 1) + np.sum(np.array(s) == 0)//2
-                    for i in range(nb_var_inset):
-                        subsets_w.append(s)
-                subsets = subsets_w
-            else:
-                for s in subsets:
-                    if np.sum(np.array(s) == 1) == self.nb_mod:
-                        nb_var_inset = 4
-                    elif (np.sum(np.array(s) == 1) == (nb_mod-1) and np.sum(np.array(s) == -1) == 1):
-                        nb_var_inset = 3
-                    elif (np.sum(np.array(s) == 0)) == self.nb_mod-1:
-                        nb_var_inset = 2
-                    elif (np.sum(np.array(s) == 0)) == self.nb_mod-2:
-                        nb_var_inset = 2
-                    elif (np.sum(np.array(s) == 0)) == 0:
-                        nb_var_inset = 1
-                    # nb_var_inset = 1
-                for i in range(nb_var_inset):
-                    subsets_w.append(s)
-            subsets = subsets_w
-        np.random.shuffle(subsets)
-        return torch.tensor(subsets).to(self.device)
+    def set_device(self, device):
+        self.device = device
+        self.masks = self.masks.to(device)
 
     def beta_t(self, t):
         return self.beta_min + t * (self.beta_max - self.beta_min)
 
     def sde(self, t):
+        # Returns the drift and diffusion coefficient of the SDE ( f(t), g(t)) respectively.
         return -0.5*self.beta_t(t), torch.sqrt(self.beta_t(t))
 
     def marg_prob(self, t, x):
-        # return mean std of p(x(t))
+        
+        ## Returns mean and std of the marginal distribution P_t(x_t) at time t.
         log_mean_coeff = -0.25 * t ** 2 * \
             (self.beta_max - self.beta_min) - 0.5 * t * self.beta_min
-
-        log_mean_coeff = log_mean_coeff.to(self.device)
-
         mean = torch.exp(log_mean_coeff)
         std = torch.sqrt(1 - torch.exp(2 * log_mean_coeff))
-        return mean.view(-1, 1) * torch.ones_like(x).to(self.device), std.view(-1, 1) * torch.ones_like(x).to(self.device)
+        return mean.view(-1, 1) * torch.ones_like(x, device=self.device), std.view(-1, 1) * torch.ones_like(x, device=self.device)
 
-    def sample(self, t, time, data, mods_list):
+    def sample(self, x_0, t):
+        ## Forward SDE
+        # Sample from P(x_t | x_0) at time t. Returns A noisy version of x_0.
+        mean, std = self.marg_prob(t, t)
+        z = torch.randn_like(x_0, device=self.device)
+        x_t = x_0 * mean + std * z
+        return x_t, z, mean, std
 
-        x_t_m = {}
-        z_m = {}
-        f, g = self.sde(time)
-        mean, std = self.marg_prob(time, time)
+    def train_step(self, data, score_net, eps=1e-5):
+        """
+        Perform a single training step for the SDE model.
 
-        for i, mod in enumerate(mods_list):
-            x_mod = data[mod]
-            z = torch.randn_like(x_mod).to(self.device)
-            mean_i, std_i = self.marg_prob(
-                t[:, i].view(x_mod.shape[0], 1), x_mod)
-            z_m[mod] = z
-            x_t_m[mod] = mean_i * x_mod + std_i * z
+        Args:
+            data : The input data for the training step.
+            score_net : The score network used for computing the score.
+            eps: A small value used for numerical stability when importance sampling is Off. Defaults to 1e-3.
+        Returns:
+            Tensor: The loss value computed during the training step.
+        """
 
-        return x_t_m, z_m, mean, std, f, g
-
-    def expand_mask(self, mask, mods_sizes):
-
-        mask = torch.cat([
-            mask[:, i].view(mask.shape[0], 1).expand(mask.shape[0], size) for i, size in enumerate(mods_sizes)
-        ], dim=1
-        )
-        return mask
-
-    def train_step(self, data, score_net, eps=1e-3):
-
-        x = concat_vect(data)
-
-        mods_list = list(data.keys())
-
-        mods_sizes = [data[key].size(1) for key in mods_list]
-
-        nb_mods = len(mods_list)
-        bs = data[mods_list[0]].size(0)
+        x_0 = concat_vect(data)
+        bs = x_0.size(0)
 
         if self.importance_sampling:
-            t = (self.sample_debiasing_t(
-                shape=(x.shape[0], 1))).to(self.device)
+            t = (self.sample_importance_sampling_t(
+                shape=(x_0.shape[0], 1))).to(self.device)
         else:
             t = ((self.T - eps) *
-                 torch.rand((x.shape[0], 1)) + eps).to(self.device)
+                 torch.rand((x_0.shape[0], 1)) + eps).to(self.device)
+        # randomly sample an index to choose a masks
+        if self.rand_batch:
+            i = torch.randint(low=1, high=len(self.masks)+1, size=(bs,)) - 1
+        else:
+            i = (torch.randint(low=1, high=len(self.masks)+1, size=(1,)) - 1 ).expand(bs)
+            
+        # Select the mask randomly from the list of masks to learn the denoising score functions.
 
-        t_n = t.expand((x.shape[0], nb_mods))
-        i = torch.randint(low=1, high=len(self.subsets)+1, size=(bs,)) - 1
-        mask = self.subsets[i.long(), :]
+        mask = self.masks[i.long(), :]
+        mask_data = expand_mask(mask, self.var_sizes)
+        # Varaibles that are not marginal
+        mask_data_marg = (mask_data < 0).float()
+        # Varaibles that will be diffused
+        mask_data_diffused = mask_data.clip(0, 1)
 
-        mask_time_marg = (mask < 0).int()
+        x_t, Z, _, _ = self.sample(x_0=x_0, t=t)
+        # print("x_t_oring",x_t[:1])
+        # The conditional variables are filled with the clean data
+        x_t = mask_data_diffused * x_t + (1 - mask_data_diffused) * x_0
+        # Fill with zeros the non marginal variables
+        x_t = x_t * (1 - mask_data_marg)
+        if self.marginals == 1:
+            # Fill with noise the non marginal variables if the option is on. (Note: This works with MLP network)
+            # For Transformer the non marginal variables are filled with zero values
+            x_t = x_t + mask_data_marg * \
+                torch.randn_like(x_0, device=self.device)
+        # print("mask",mask[:1])
+        # print("x_0",x_0[:1])
+        # print("x_t_in",x_t[:1])
+        
+        score = score_net(x_t, t=t, mask=mask, std=None) * mask_data_diffused
+        Z = Z * mask_data_diffused
 
-        mask_time_cond = mask.clip(0, 1)
-
-        t_n = t_n * mask_time_cond
-
-        x_t_m, z_m, mean, std, f, g = self.sample(
-            t=t_n, time=t, data=data, mods_list=mods_list)
-
-        X_t = concat_vect(x_t_m).float()
-
-        t_n = t_n + (self.margin_time) * mask_time_marg
-        mask_time_marg = self.expand_mask(mask_time_marg, mods_sizes)
-
-        X_t = X_t * (1 - mask_time_marg)
-        if self.fill_zeros == False:
-            X_t = X_t + mask_time_marg * torch.randn_like(X_t)
-
-        score = score_net(X_t , 
-                          t_n=t_n.float(),
-                          t= t,
-                        mask= mask, 
-                        std = None)
-
-        Z = concat_vect(z_m)
-
-        mask_data_diff = self.expand_mask(mask_time_cond, mods_sizes)
-
-        score = mask_data_diff * score
-        Z = mask_data_diff * Z
-
+        # Score matching of diffused data reweithed proportionnaly to the size of the diffused data.
         total_size = score.size(1)
-
-        weight = (( ( total_size - torch.sum(mask_data_diff,dim=1) ) / total_size ) + 1 ).view(bs,1)
-
+        weight = (((total_size - torch.sum(mask_data_diffused, dim=1)
+                    ) / total_size) + 1).view(bs, 1)
         loss = (weight * torch.square(score - Z)).sum(1, keepdim=False)
-
         return loss
 
-    def sample_debiasing_t(self, shape):
+
+    
+    
+    def get_masks_training(self, o_inf_order):
         """
-        non-uniform sampling of t to debias the weight std^2/g^2
-        the sampling distribution is proportional to g^2/std^2 for t >= t_epsilon
-        for t < t_epsilon, it's truncated
+        Returns a list of masks each corresponds to a score function need to infer the order of o-information.
+        for {X^1, X^2, X^3} the masks are:	
+        [1,1,1] for the joint distribution
+        [1,-1,-1],[-1,1,-1],[-1,-1,1] for the marginal distribution
+        [1,0,0],[0,1,0],[0,0,1] for the conditional distribution
+        [1,0,-1],[1,-1,0], ... etc for the conditional distribution with one variable non marginal.
+        
+        Parameters:
+        - o_inf_order (int): if 1 only the score functions needed to compute o-information. 
+                             if 2  the score functions needed to compute o-information and its gradients.
+
+        Returns:
+            - A list of masks.
         """
-        return sample_vp_truncated_q(shape, self.beta_min, self.beta_max, t_epsilon=self.t_epsilon, T=self.T)
+        
+        nb_var = self.nb_var
+        masks = [list(i)  for i in itertools.product([0, 1, -1], repeat=nb_var)]
+        
+        if o_inf_order == 1:
+            masks = [s for s in masks if (sum(s) == nb_var) or  # S(X)
+                       (np.sum(np.array(s) == 1) and np.sum(np.array(s) == -1) == nb_var-1)  # S(X^i)
+                       or (np.sum(np.array(s) == 1) == 1 and np.min(np.array(s)) == 0)]  # S(X^i|X^\i)
+        elif o_inf_order == 2:
+            masks = [s for s in masks if
+                       (sum(s) == nb_var) # S(X)
+                       or (np.sum(np.array(s) == 1) == nb_var - 1 and np.sum(np.array(s) == -1) == 1)  # S(X^\i)
+                       # cond full
+                       or (np.sum(np.array(s) == 1) == 1 and np.sum(np.array(s) == 0) == nb_var-1) # S(X^i|X^\i)
+                       # cond_ij
+                       or (np.sum(np.array(s) == 1) == 1 and np.sum(np.array(s) == 0) == nb_var-2) # S(X^i|X^\ij)
+                       # marginal
+                       or (np.sum(np.array(s) == 1) == 1 and np.sum(np.array(s) == -1) == nb_var-1) # S(X^i)
+                       ]
+            
+        if self.weight_s_functions:
+            return self.weight_masks(masks)
+        else:
+            np.random.shuffle(masks)
+            return torch.tensor(masks, device=self.device)   
+
+
+    def weight_masks(self, masks):
+        """ Weighting the mask list so the more complex score functions are picked more often durring the training step. 
+        This is done by duplicating the mask with the list of masks.
+        """
+        masks_w = []
+        #if o_inf_order == 1:
+        print("Weighting the scores to learn ")
+        for s in masks:
+                nb_var_inset = np.sum(np.array(s) == 1) #+ np.sum(np.array   (s) == 0)//2
+                for i in range(nb_var_inset):
+                    masks_w.append(s)
+         
+        np.random.shuffle(masks_w)
+        return torch.tensor(masks_w, device=self.device)
+
+    def sample_importance_sampling_t(self, shape):
+        """
+        Non-uniform sampling of t to importance_sampling. See [1,2] for more details.
+        [1] https://arxiv.org/abs/2106.02808
+        [2] https://github.com/CW-Huang/sdeflow-light
+        """
+        return sample_vp_truncated_q(shape, self.beta_min, self.beta_max, T=self.T)

@@ -1,14 +1,19 @@
 import os
 from pathlib import Path
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 from allensdk.brain_observatory.behavior.behavior_project_cache.\
     behavior_neuropixels_project_cache \
     import VisualBehaviorNeuropixelsProjectCache
 import pickle
-output_dir = "data/vbn_cache/"
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--output_dir', type=str, default="data/vbn_data/")
+parser.add_argument('--bin_step_size', type=int, default=0.001, help="The size of the step in each bin if set to 0.001=1ms so in the experiments each interval will be 50ms interval")  
+parser.add_argument('--cache_dir', type=str, default="data/vbn_cache/")  
+
+
 
 from tqdm import tqdm
 
@@ -76,7 +81,7 @@ def add_nb_flash(df):
     out["rewarded"] =  out["reward_time"].apply(lambda x : False if x== None  else True) 
     return out
 
-def session_id_process(session_id,bin_size = 0.01,areas_good= None):
+def session_id_process(session_id,bin_step_size = 0.01,areas_good= None):
         
         session = cache.get_ecephys_session(
             ecephys_session_id=session_id)
@@ -122,9 +127,9 @@ def session_id_process(session_id,bin_size = 0.01,areas_good= None):
         
         data_area = {}
         for ar in areas_good:
-            out_change, bins = get_time_series(change_times,ar,good_units,spike_times,step_bin=bin_size)
+            out_change, bins = get_time_series(change_times,ar,good_units,spike_times,step_bin=bin_step_size)
             
-            out_non_change, bins = get_time_series(non_change_times,ar,good_units,spike_times,step_bin=bin_size)
+            out_non_change, bins = get_time_series(non_change_times,ar,good_units,spike_times,step_bin=bin_step_size)
             
             
             data_area[ar] ={
@@ -176,8 +181,12 @@ def read_session(session_id,path):
     return b 
 
 if __name__=="__main__":
+    
+    
+    args = parser.parse_args()
+    
     cache = VisualBehaviorNeuropixelsProjectCache.from_s3_cache(
-            cache_dir=Path(output_dir))
+            cache_dir=args.cache_dir)
 
     # get the metadata tables
     units_table = cache.get_unit_table()
@@ -236,10 +245,12 @@ if __name__=="__main__":
     for i, session_id in enumerate(mice_with_both_fam_and_nov):
         good_sess.append(session_id)
     
+    with open("data/good_sessions.pickle", "wb") as f:
+        pickle.dump(good_sess, f)
     
     
-    for i, session_id in tqdm( enumerate(good_sess) ):
+    for i, session_id in tqdm( enumerate(good_sess[:1]) ):
         print(session_id)
-        data, non_change, change = session_id_process(session_id, bin_size = 0.002,areas_good=structures )
-        save_session(session_id,data,"vbnfinal_bin/")
+        data, non_change, change = session_id_process(session_id, bin_step_size = args.bin_step_size,areas_good=structures )
+        save_session(session_id,data,"data/vbn_{}/".format(args.bin_step_size))
         
