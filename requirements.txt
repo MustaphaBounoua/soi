@@ -7,4 +7,4 @@ timm==0.9.16
 torch==2.2.1
 tqdm==4.66.1
 tensorboard==2.16.2
-jupyter==1.0.0
+jupyter==1.0.0 
