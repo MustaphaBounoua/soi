@@ -9,11 +9,8 @@ from experiments.config import get_config
 
 parser = get_config()
 
-#parser.add_argument('--setting', type=int, default=3, help="Number of regions either 3 or 6")
-#parser.add_argument('--out_dir', type=int, default="logs/vbn/")
-#parser.out_dir.default = "logs/vbn/"
-#parser.setting.default = 3 #Number of regions either 0 or 1
-parser.add_argument('--change', type=str, default="change")
+
+parser.add_argument('--change', type=str, default="change", help ="options are change  or non_change stimuli")
 parser.add_argument('--time_bin', type=int, default=0)
 
 
