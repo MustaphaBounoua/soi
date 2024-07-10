@@ -1,5 +1,4 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2402.05667-b31b1b.svg)](https://arxiv.org/pdf/2402.05667)
-
 [![Venue](https://img.shields.io/badge/venue-ICML_2024-darkblue)](https://icml.cc/virtual/2024/oral/35535)
 [![Venue](https://img.shields.io/badge/Oral-presentation-darkred)](https://icml.cc/virtual/2024/oral/35535)
 
@@ -23,11 +22,11 @@ pip install -r requirements.txt
 
 ### Demo
 
-#### Synthetic benchmark
+Checkout  `Quickstart.ipynb` for a quickstart on how to use SΩI.
 
-The notebook  `Quickstart.ipynb` presents a quick tutorial to use *S\Omega*I.
 
-First, by default config can be loaded :
+
+First, default config can be loaded :
 ```python
 args=get_default_config()
 ```
@@ -36,7 +35,7 @@ A synthetic benchmark can be created :
 ```python
 my_settings = [{"rho":0.6,"type":"red","nb":3},{"rho":0.6,"type":"Syn","nb":3} ]
 args.dim = 1
-task_both = get_task(args,my_settings)
+task = get_task(args,my_settings)
 
 ```
 Groud truth information measures can be obtained:
@@ -59,6 +58,7 @@ Instantiante SOI object
 soi = SOI(args, nb_var = task.nb_var, test_loader=test_l, gt = task.get_summary())
 ```
 Fit the model
+
 ```python
 soi.fit(train_l, test_l)
 ```
