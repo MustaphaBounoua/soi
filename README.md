@@ -71,16 +71,16 @@ soi.compute_o_inf_batch(test_l)
 
 
 
-### Running the Code
+### Running experiments
 
 Running a particular experiments can be done using the scripts in `experiments\`. The experiments configurations are described in `experiments\config.py`
 
 Example:
 ```bash
-python -m experiments.run_soi --arch "tx" --bechmark "red" --dim 1 --setting "0" --rho 0.4 --bs 256 --lr 0.001 --max_epochs 200
+python -m experiments.run_soi --arch "tx" --bechmark "red" --dim 1 --setting "0" --rho 0.4 --bs 256 --lr 0.001 --max_epochs 200 --use_ema --importance_sampling  --weight_s_functions
 ```
 
-To run the experiments and reproduce the results from the paper, the shell scripts containing all the configuration are in `jobs\`.
+To run the experiments and reproduce the results from the paper, the shell scripts are provided in `jobs\`.
 
 ### Dataset
 
