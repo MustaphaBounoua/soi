@@ -13,9 +13,15 @@ This repository contains the implementation for the paper [SΩI : Score-based O
 The analysis of scientific data and complex multivariate systems requires information quantities that capture relationships among multiple random variables. Recently, new information-theoretic measures have been developed to overcome the shortcomings of classical ones, such as mutual information, that are restricted to considering pairwise interactions. Among them, the concept of information synergy and redundancy is crucial for understanding the high-order dependencies between variables. One of the most prominent and versatile measures based on this concept is O-information, which provides a clear and scalable way to quantify the synergy-redundancy balance in multivariate systems. However, its practical application is limited to simplified cases. In this work, we introduce SΩI, which allows to compute O-information without restrictive assumptions about the system while leveraging a unique model. Our experiments validate our approach on synthetic data, and demonstrate the effectiveness of SΩI in the context of a real-world use case.
 
 ## Installation
+
+This repo was developed and tested under Python `3.9.12`. 
+
+To install the dependencies :
+
 ```bash
 pip install -r requirements.txt
 ```
+
 
 ## Usage
 
