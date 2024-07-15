@@ -30,6 +30,7 @@ data/
 qualitative/
 results/
 jobs/o_inf_tx.sh
+reprod_results/
 jobs/all.sh
 test/
 plots/
