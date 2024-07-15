@@ -32,8 +32,10 @@ results/
 jobs/o_inf_tx.sh
 jobs/all.sh
 test/
+plots/
 temp/
 wheels/
+
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
