@@ -55,7 +55,7 @@ train_l, test_l  = get_dataloader(task,args)
 Instantiante SOI object
 
 ```python
-soi = SOI(args, nb_var = task.nb_var, test_loader=test_l, gt = task.get_summary())
+soi = SOI(args, nb_var = task.nb_var)
 ```
 Fit the model
 
@@ -66,7 +66,7 @@ soi.fit(train_l, test_l)
 Compute O_information using the test_loader
 
 ```python
-soi.compute_o_inf_batch(test_l)
+soi.compute_o_inf()
 ```
 
 
