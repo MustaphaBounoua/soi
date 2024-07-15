@@ -11,7 +11,7 @@ from ..models.transformer import DiT
 
 class SOI(pl.LightningModule):
 
-    def __init__(self,args,nb_var=None,gt=None,test_loader=None,test_samples=None,var_list = None):
+    def __init__(self,args,nb_var=None,gt=None,var_list = None):
                
                  
         super(SOI, self).__init__()
@@ -39,7 +39,6 @@ class SOI(pl.LightningModule):
         elif self.args.arch == "tx":
             self.score = DiT(depth=4,hidden_size=hidden_dim , var_list=var_list)
         
-        self.test_samples = test_samples if test_samples != None else get_samples(test_loader,device="cuda"if args.accelerator == "gpu" else "cpu")
         
         self.model_ema = EMA(self.score, decay=0.999) if self.args.use_ema else None
 
@@ -52,6 +51,10 @@ class SOI(pl.LightningModule):
     
     
     def fit(self,train_loader,test_loader):
+        if test_loader ==None:
+            test_loader = train_loader ## train and test on the same dataset
+        
+        self.test_samples = get_samples(test_loader,device="cuda"if self.args.accelerator == "gpu" else "cpu")
         args = self.args
         CHECKPOINT_DIR = "{}/Soi{}/{}/{}/seed_{}/setting_{}/dim_{}/rho_{}/".format(args.out_dir,"_grad" if args.o_inf_order>1 else "",
                                                                                    args.benchmark,

@@ -23,13 +23,13 @@ def benchmark_exp(args):
     train_loader, test_loader = get_dataloader(task, args)
     test_samples = get_samples(test_loader,device , N=10000)
     args.hidden_dim = None
-    model = SOI_grad(args, test_samples=test_samples,gt=task.get_summary(),  nb_var=task.nb_var)
+    model = SOI_grad(args, gt=task.get_summary(),  nb_var=task.nb_var)
 
     model.fit(train_loader, test_loader)
     model.to(device)
     model.eval()
     
-    results = model.compute_o_inf_with_grad(test_samples)
+    results = model.compute_o_inf_with_grad()
     return {args.rho:{"gt": task.get_summary(),
                       "e":results}}
 

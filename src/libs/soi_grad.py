@@ -107,7 +107,7 @@ class SOI_grad(SOI):
         return s_joint, s_marg, s_cond_x, s_joint_marg, s_cond_ij
 
 
-    def compute_o_inf_with_grad(self, data, eps=1e-5):
+    def compute_o_inf_with_grad(self, data=None, eps=1e-5):
         """
         Compute the gradient of o_inf b ycomputeing \Omega(X)- \Omega(X^\i) for each variable i.
 
@@ -120,6 +120,8 @@ class SOI_grad(SOI):
         Returns:
             tuple: A tuple containing the computed o_inf measures.
         """
+        if data ==None:
+            data= self.test_samples
         if isinstance(data, dict)==False:
             data = get_samples(data, device=self.device)
         self.sde.device = self.device
@@ -183,7 +185,7 @@ class SOI_grad(SOI):
 
         return out
 
-    def compute_o_inf_with_grad_2(self, data, eps=1e-5):
+    def compute_o_inf_with_grad_2(self, data=None, eps=1e-5):
         """
         Compute the gradient of o_inf using equation 11 from the paper which does not require S(X^\i).
 
@@ -196,6 +198,8 @@ class SOI_grad(SOI):
         Returns:
             tuple: A tuple containing the computed o_inf measures.
         """
+        if data ==None:
+                data= self.test_samples
         if isinstance(data, dict)==False:
             ## ToDo: Rewrite a batched version of the function
             data=get_samples(data, device=self.device, N=10000)

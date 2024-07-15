@@ -64,7 +64,7 @@ def benchmark_exp(args):
     test_samples = get_samples(
         data_loader, device=device, N=10000)
     
-    model = SOI(args, nb_var=len(structure), var_list= {i: args.dim for i in structure}, test_samples=test_samples)
+    model = SOI(args, nb_var=len(structure), var_list= {i: args.dim for i in structure})
  
     model.fit(data_loader, None)
     
