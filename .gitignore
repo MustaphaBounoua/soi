@@ -28,9 +28,9 @@ logs/
 quickstart/
 data/
 qualitative/
+reprod_results/
 results/
 jobs/o_inf_tx.sh
-reprod_results/
 jobs/all.sh
 test/
 
