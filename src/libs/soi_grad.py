@@ -7,10 +7,10 @@ from .soi import SOI
 
 
 class SOI_grad(SOI):
-    def __init__(self, args, nb_var=None, gt=None, test_samples=None,test_loader= None):
+    def __init__(self, args, nb_var=None, gt=None):
         args.o_inf_order = 2
         super(SOI_grad, self).__init__(
-            args, nb_var=nb_var, gt=gt, test_samples=test_samples,test_loader=test_loader)
+            args, nb_var=nb_var, gt=gt)
 
     def infer_scores_for_o_inf_grad(self, x_t,t, data, std_w, marg_masks, cond_mask,do_s_joint_marg = True):
         """_summary_
@@ -120,6 +120,8 @@ class SOI_grad(SOI):
         Returns:
             tuple: A tuple containing the computed o_inf measures.
         """
+        self.eval()
+        self.to("cuda" if self.args.accelerator == "gpu" else "cpu")
         if data ==None:
             data= self.test_samples
         if isinstance(data, dict)==False:
@@ -198,6 +200,8 @@ class SOI_grad(SOI):
         Returns:
             tuple: A tuple containing the computed o_inf measures.
         """
+        self.eval()
+        self.to("cuda" if self.args.accelerator == "gpu" else "cpu")
         if data ==None:
                 data= self.test_samples
         if isinstance(data, dict)==False:

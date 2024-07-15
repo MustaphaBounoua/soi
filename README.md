@@ -19,7 +19,7 @@ This repo was developed and tested under Python `3.9.12`.
 To install the dependencies :
 
 ```bash
-pip install -r requirements.txt
+$ pip install -r requirements.txt
 ```
 
 
