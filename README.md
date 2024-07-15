@@ -88,7 +88,7 @@ The synthetic benchmark are generated and not stored. The VBN dataset used in th
 
 ## Project Structure
 ```
-MLD/
+soi/
 ├── experiments/           
 │   ├── run_soi.py         # run SOI experiment on synthetic benchmark
 │   ├── run_soi_grad.py    # run SOI experiment on synthetic benchmark and estimate gradient of O-information
