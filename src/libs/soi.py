@@ -367,11 +367,13 @@ class SOI(pl.LightningModule):
         else:
             dim_m = np.max(self.sizes)
             if dim_m <= 5:
-                htx = 32
-            elif dim_m <= 10:
-                htx = 48
-            else:
+                htx = 60
+            if dim_m <= 10:
                 htx = 72
+            elif dim_m <= 15:
+                htx = 96
+            else:
+                htx = 128
             return htx
 
     def logger_estimates(self):

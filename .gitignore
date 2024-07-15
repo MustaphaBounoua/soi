@@ -29,6 +29,8 @@ quickstart/
 data/
 qualitative/
 results/
+jobs/o_inf_tx.sh
+jobs/all.sh
 test/
 temp/
 wheels/

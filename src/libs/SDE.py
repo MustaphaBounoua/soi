@@ -175,7 +175,7 @@ class VP_SDE():
         #if o_inf_order == 1:
         print("Weighting the scores to learn ")
         for s in masks:
-                nb_var_inset = np.sum(np.array(s) == 1) #+ np.sum(np.array   (s) == 0)//2
+                nb_var_inset = np.sum(np.array(s) == 1) + np.sum(np.array   (s) == 0)//2
                 for i in range(nb_var_inset):
                     masks_w.append(s)
          
