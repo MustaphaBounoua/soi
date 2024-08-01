@@ -19,16 +19,14 @@ def benchmark_exp(args):
     print("O_inf of this task is : ", task.o_inf())
     device = "cuda" if args.accelerator == "gpu" else "cpu"
     train_loader, test_loader = get_dataloader(task, args)
-    test_samples = get_samples(
-        test_loader, device=device, N=10000)
-    args.hidden_dim = None ##set automotaically in the model class
-    model = SOI(args, test_samples=test_samples,
-                gt=task.get_summary(), nb_var=task.nb_var)
+    
+    args.hidden_dim = None ##set automatically in the model class
+    model = SOI(args, gt=task.get_summary(), nb_var=task.nb_var)
     model.fit(train_loader, test_loader)
     model.to(device)
     model.eval()
 
-    results = model.compute_o_inf(test_samples)
+    results = model.compute_o_inf()
     
     return {args.rho: {"gt": task.get_summary(),
                        "e": results}}

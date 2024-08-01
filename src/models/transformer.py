@@ -356,9 +356,6 @@ class DiT(nn.Module):
                                    embed_dim=hidden_size,
                                    norm_layer=nn.LayerNorm)
         
-        self.x_embedder_clean = VarEmbed(sizes=self.var_sizes,
-                                   embed_dim=hidden_size,
-                                   norm_layer=nn.LayerNorm)
         
         self.t_embedder = TimestepEmbedder(hidden_size)
 

@@ -3,15 +3,15 @@ source myvenv/bin/activate
 
 
 i=0
-for dim in  5  15  10 20 
+for dim in  10 20 # 5  15  10 20 
 do
-   for setting in 0  1 
+   for setting in 0 # 1 
    do
-      for seed in 77 55  33 22 11
+      for seed in 77 55  33 # 22 11
       do
          i=0
-         for rho in   0.7 0.65 0.6 0.55 0.5 0.475 0.45 0.425 0.4 0.375 0.35 0.325 0.3 0.25 0.2 0.1
-         #for rho in   0.7 0.65  0.6  0.5  0.45  0.4 0.375 0.35 0.3 0.25 0.2 0.1
+         #for rho in   0.7 0.65 0.6 0.55 0.5 0.475 0.45 0.425 0.4 0.375 0.35 0.325 0.3 0.25 0.2 0.1
+         for rho in   0.7 0.65  0.6  0.5  0.45  0.4 0.375 0.35 0.3 0.25 0.2 0.1
          do
             export CUDA_VISIBLE_DEVICES="$i"  
             i=$((i+1))

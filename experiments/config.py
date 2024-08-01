@@ -64,7 +64,7 @@ def get_config():
                         help='number of epochs between each checkpointing')
     parser.add_argument('--out_dir', type=str, default="logs/trained_models/",
                         help='Where to store the model logs and checkpoints" ')
-    parser.add_argument('--results_dir', type=str, default="reprod_results/",
+    parser.add_argument('--results_dir', type=str, default="results/",
                         help='Where to store the results')
     
     return parser
